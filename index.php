@@ -12,9 +12,12 @@
     define('PLAYER_NAME', 'Flutter Studant');
 
     define('FILE_BACKUP', 'backup.json');
+
+    $user = shell_exec('whoami 2>&1');
+
     // Path de imagens que são geradas automáticas pelo tibia (se configurar para permitir)
     // Up Lvl, Up Skill, Dead, Boss, Drop, etc..
-    define('TIBIA_SCREENSHOTS', '/home/dev/.local/share/CipSoft GmbH/Tibia/packages/Tibia/screenshots/');
+    define('TIBIA_SCREENSHOTS', '/home/'.trim($user).'/.local/share/CipSoft GmbH/Tibia/packages/Tibia/screenshots/');
 
     $primeiraLeitura = explode(PHP_EOL,file_get_contents(FILE_BACKUP));
 
@@ -72,8 +75,9 @@
                 echo "O titulo e descricao do commit ficou.\n";
                 echo "$titulo\n";
                 echo "$descricao\n";
-                shell_exec('cd /home/aplicativos/programador.dev && git add . && git commit -m "'.$titulo.'" -m "'.$descricao.'" && git push 2>&1');
-                $commit = [];
+                $resposta = shell_exec('cd /home/aplicativos/programador.dev && git add . && git commit -m "'.$titulo.'" -m "'.$descricao.'" && git push 2>&1');
+                var_dump($resposta);
+                //$commit = [];
                 return;
             }
             
