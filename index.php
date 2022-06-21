@@ -19,22 +19,27 @@
     // Up Lvl, Up Skill, Dead, Boss, Drop, etc..
     define('TIBIA_SCREENSHOTS', '/home/'.trim($user).'/.local/share/CipSoft GmbH/Tibia/packages/Tibia/screenshots/');
 
-    $primeiraLeitura = explode(PHP_EOL,file_get_contents(FILE_BACKUP));
+    $primeiraLeitura = file_get_contents(FILE_BACKUP);
+
+    $primeiraLeitura = (empty($primeiraLeitura) || $primeiraLeitura == '') ? '{}' : $primeiraLeitura;
+
+    $primeiraLeitura = json_decode($primeiraLeitura, true);
 
     $pathTibiaSite = '/home/aplicativos/programador.dev/img/tibia/';
     $nome_buneco = str_replace(' ', '-', strtolower(PLAYER_NAME));
 
-    foreach($primeiraLeitura as $imagem){
-        if(strpos($imagem, PLAYER_NAME) === false){
+    foreach($primeiraLeitura as $imagens){
+        if(strpos($imagens['imagem'], PLAYER_NAME) === false){
             continue;
         }
 
-        $imagens_tibia_generator[$imagem] = $imagem;
+        $imagens_tibia_generator[$imagens['imagem']] = $imagens;
     }
 
     function commit(){
         global $tempo;
         global $commit;
+        global $imagens_tibia_generator;
         
         if($tempo <= strtotime('now - '.TIME_BETWEEN_COMMITS.' minutes')){
             echo TIME_BETWEEN_COMMITS." minuto passou, vamos enviar o commit\n";
@@ -76,7 +81,6 @@
                 echo "$titulo\n";
                 echo "$descricao\n";
                 $resposta = shell_exec('cd /home/aplicativos/programador.dev && git add . && git commit -m "'.$titulo.'" -m "'.$descricao.'" && git push 2>&1');
-                var_dump($resposta);
                 //$commit = [];
                 return;
             }
@@ -84,6 +88,12 @@
             echo "Não será comitado nada, não há nada novo.\n";
             $commit = [];
         }
+
+        file_put_contents(FILE_BACKUP, json_encode($imagens_tibia_generator));
+    }
+
+    function geraNomeImagem($imagem){
+        return /* $nome_buneco.'+'.date('dmY_His').'_'. */sha1($imagem);
     }
 
     function sendImagensToPathSite($imagem){
@@ -94,18 +104,47 @@
         global $pathTibiaSite;
         global $nome_buneco;
 
+        echo "$imagem\n";
+
         try {
 
             if(!is_dir($pathTibiaSite.PLAYER_NAME)){
                 shell_exec("echo 'qwerty' | sudo -S mkdir $pathTibiaSite$nome_buneco 2>&1");
             }
 
-            $imagemSha1 = $nome_buneco.'+'.date('dmY_His').'_'.sha1($imagem);
+            $imagemSha1 = geraNomeImagem($imagem);
             file_put_contents($pathTibiaSite.$nome_buneco.'/'.$imagemSha1.'.png', file_get_contents(TIBIA_SCREENSHOTS.$imagem));
             $commit[$imagem] = $imagem;
 
-            $imagens_tibia_generator[$imagem] = $imagem;
-            file_put_contents(FILE_BACKUP, $imagem.PHP_EOL, FILE_APPEND);
+            $listaDescricao = '';
+            if(strpos($imagem, 'LevelUp') !== false){
+                // Level UP
+                $listaDescricao = 'GZ !! LEVEL UP!  - congratulations ! ! !';
+            }
+            if(strpos($imagem, 'SkillUp') !== false){
+                // Skill UP
+                $listaDescricao = 'GZ ! Aumentando a skill!  - congratulations ! ! !';
+            }
+            if(strpos($imagem, 'BestiaryEntryUnlocked') !== false){
+                // Iniciando Bestiary
+                $listaDescricao = 'Desbloqueando um novo monstro de Bestiario.';
+            }
+            if(strpos($imagem, 'HighestDamageDealt') !== false){
+                // Maior dano causado
+                $listaDescricao = 'Maior dano causado até esse momento.';
+            }
+            if(strpos($imagem, 'Achievement') !== false){
+                // Achievement
+                $listaDescricao = 'Meu novo Achievement';
+            }
+
+            $imagens_tibia_generator[$imagem] = [
+                'imagem' => $imagem,
+                'legenda' => PLAYER_NAME. ' | '.date('d/m/Y').' | '.$listaDescricao,
+                'small' => $imagemSha1.'.png',
+                'big' => $imagemSha1.'.png',
+            ];
+
             echo "Adicinado uma nova imagem.\n";
 
         } catch (\Exception $erro) {
@@ -118,8 +157,8 @@
         if(strpos($imagem, PLAYER_NAME) === false){
             return;
         }
-
-        $backupimagens = file_get_contents(FILE_BACKUP);
+        
+        global $imagens_tibia_generator;
 
         if(!is_file(TIBIA_SCREENSHOTS.$imagem)){
             echo "Ops, a imagem não existe.";
@@ -129,11 +168,22 @@
 
         global $nome_buneco;
         global $pathTibiaSite;
-        $imagemSha1 = $nome_buneco.'+'.date('dmY').'_'.sha1($imagem);
+        $imagemSha1 = geraNomeImagem($imagem);
         $imagemSuposta = $pathTibiaSite.$nome_buneco.'/'.$imagemSha1.'.png';
-        if(strpos($backupimagens, $imagem) === false and !is_file($imagemSuposta)){
+
+        
+        if(is_array($imagens_tibia_generator) and count($imagens_tibia_generator) > 0){
+            
+            foreach($imagens_tibia_generator as $imagemdoBACKUP => $informacoesImagem){
+                
+                if($imagemdoBACKUP !== $imagem and !is_file($imagemSuposta)){
+                    sendImagensToPathSite($imagem);
+                }
+            }
+        }else{
             sendImagensToPathSite($imagem);
         }
+        
     }
     
     if(is_dir(TIBIA_SCREENSHOTS)){
